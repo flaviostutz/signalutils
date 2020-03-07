@@ -15,6 +15,7 @@ type MovingAverage struct {
 	samplesDurationNano       int64
 	lastSampleTimeUnixNano    int64
 	minTimeNanoBetweenSamples int64
+	lastResultTime            int64
 }
 
 //NewMovingAverage creates a new moving averager with a fixed size
@@ -55,6 +56,9 @@ func (m *MovingAverage) AddSample(value float64) bool {
 		//put new sample in tail
 		for i := 0; i < len(m.Samples)-1; i++ {
 			m.Samples[i] = m.Samples[i+1]
+			if m.samplesDurationNano != -1 {
+				m.samplesTimeUnixNano[i] = m.samplesTimeUnixNano[i+1]
+			}
 		}
 	}
 	m.Samples[m.Size-1] = value
@@ -72,7 +76,7 @@ func (m *MovingAverage) AddSample(value float64) bool {
 //Returns true if sample was accepted
 func (m *MovingAverage) AddSampleIfNearAverage(value float64, avgDiff float64) bool {
 	avg := m.Average()
-	if math.Abs(avg-value) <= (avg * avgDiff) {
+	if math.IsNaN(avg) || (math.Abs(avg-value) <= (avg * avgDiff)) {
 		return m.AddSample(value)
 	}
 	return false
@@ -81,21 +85,39 @@ func (m *MovingAverage) AddSampleIfNearAverage(value float64, avgDiff float64) b
 //Average computes average with current samples in fixed length list
 func (m *MovingAverage) Average() float64 {
 	if m.Size == 0 {
-		return 0
+		return math.NaN()
 	}
+
+	//invalidate cache if using timed window
+	if m.samplesDurationNano != -1 && m.lastResultValid {
+		if (time.Now().UnixNano() - m.lastResultTime) > m.minTimeNanoBetweenSamples {
+			m.lastResultValid = false
+		}
+	}
+
+	// fmt.Printf("CACHE %v\n", m.lastResultValid)
+	n := 0
 	if !m.lastResultValid {
 		sum := 0.0
 		for i := 0; i < m.Size; i++ {
 			if m.samplesDurationNano != -1 {
 				//skip this sample if too old
 				if (time.Now().UnixNano() - m.samplesTimeUnixNano[i]) > m.samplesDurationNano {
+					// fmt.Printf("SKIP OLD %f i=%d\n", m.Samples[i], i)
 					continue
 				}
 			}
 			sum = sum + m.Samples[i]
+			n = n + 1
 		}
-		m.lastResult = sum / float64(m.Size)
-		m.lastResultValid = true
+
+		m.lastResult = math.NaN()
+		if n > 0 {
+			m.lastResult = sum / float64(n)
+			// fmt.Printf("%f/%f=%f\n", sum, float64(n), m.lastResult)
+			m.lastResultValid = true
+			m.lastResultTime = time.Now().UnixNano()
+		}
 	}
 	return m.lastResult
 }
@@ -104,4 +126,5 @@ func (m *MovingAverage) Average() float64 {
 func (m *MovingAverage) Reset() {
 	m.Samples = make([]float64, len(m.Samples))
 	m.Size = 0
+	m.lastResultValid = false
 }
