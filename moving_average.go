@@ -9,13 +9,18 @@ import (
 type MovingAverage struct {
 	Size                      int
 	Samples                   []float64
-	lastResultValid           bool
 	lastResult                float64
+	lastResultTime            int64
+	lastResultValid           bool
+	lastMinResult             float64
+	lastMaxResult             float64
+	lastMinMaxResultTime      int64
+	lastMinMaxResultValid     bool
+	lastMinMaxResultGroupBy   int
 	samplesTimeUnixNano       []int64
 	samplesDurationNano       int64
 	lastSampleTimeUnixNano    int64
 	minTimeNanoBetweenSamples int64
-	lastResultTime            int64
 }
 
 //NewMovingAverage creates a new moving averager with a fixed size
@@ -68,6 +73,7 @@ func (m *MovingAverage) AddSample(value float64) bool {
 		m.samplesTimeUnixNano[m.Size-1] = time.Now().UnixNano()
 	}
 	m.lastResultValid = false
+	m.lastMinMaxResultValid = false
 	return true
 }
 
@@ -77,6 +83,7 @@ func (m *MovingAverage) AddSample(value float64) bool {
 func (m *MovingAverage) AddSampleIfNearAverage(value float64, avgDiff float64) bool {
 	avg := m.Average()
 	if math.IsNaN(avg) || (math.Abs(avg-value) <= (avg * avgDiff)) {
+		// fmt.Printf("ACCEPTED SAMPLE %f\n", value)
 		return m.AddSample(value)
 	}
 	return false
@@ -120,6 +127,66 @@ func (m *MovingAverage) Average() float64 {
 		}
 	}
 	return m.lastResult
+}
+
+//AverageMinMax - returns the min/max values in current window
+//Group min/max each 'groupBySamples' and perform average over theses samples for min and max values
+func (m *MovingAverage) AverageMinMax(groupBySamples int) (float64, float64) {
+	if m.Size == 0 {
+		return math.NaN(), math.NaN()
+	}
+
+	//invalidate cache if using timed window
+	if m.samplesDurationNano != -1 && m.lastMinMaxResultValid {
+		if (time.Now().UnixNano() - m.lastMinMaxResultTime) > m.minTimeNanoBetweenSamples {
+			m.lastMinMaxResultValid = false
+		}
+	}
+
+	// fmt.Printf("CACHE %v\n", m.lastResultValid)
+	n := 0
+	if !m.lastMinMaxResultValid {
+		sumMin := 0.0
+		sumMax := 0.0
+		currMin := math.MaxFloat64
+		currMax := -math.MaxFloat64
+		for i := 0; i < m.Size; i++ {
+			if m.samplesDurationNano != -1 {
+				//skip this sample if too old
+				if (time.Now().UnixNano() - m.samplesTimeUnixNano[i]) > m.samplesDurationNano {
+					// fmt.Printf("SKIP OLD %f i=%d\n", m.Samples[i], i)
+					continue
+				}
+			}
+			v := m.Samples[i]
+			if v < currMin {
+				currMin = v
+			}
+			if v > currMax {
+				currMax = v
+			}
+			// fmt.Printf("v=%f currMin=%f currMax=%f i=%d\n", v, currMin, currMax, i)
+			if (i+1)%groupBySamples == 0 || i == (m.Size-1) {
+				sumMin = sumMin + currMin
+				sumMax = sumMax + currMax
+				n = n + 1
+
+				currMin = math.MaxFloat64
+				currMax = -math.MaxFloat64
+				// fmt.Printf("SUM MIN=%f MAX=%f n=%d\n", sumMin, sumMax, n)
+			}
+		}
+
+		m.lastMinResult = math.NaN()
+		m.lastMaxResult = math.NaN()
+		if n > 0 {
+			m.lastMinResult = sumMin / float64(n)
+			m.lastMaxResult = sumMax / float64(n)
+			m.lastMinMaxResultValid = true
+			m.lastMinMaxResultTime = time.Now().UnixNano()
+		}
+	}
+	return m.lastMinResult, m.lastMaxResult
 }
 
 //Reset internal samples

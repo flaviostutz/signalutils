@@ -2,6 +2,7 @@ package signalutils
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -115,10 +116,64 @@ func TestMovingAverageNearAverage(t *testing.T) {
 	ma.AddSampleIfNearAverage(1000, 1)
 	ma.AddSampleIfNearAverage(2000, 1)
 	ma.AddSampleIfNearAverage(4000, 1.1) //SKIP
-	assert.Equal(t, 1000.0, ma.Average())
+	assert.Equal(t, 1200.0, ma.Average())
 
 	ma.AddSampleIfNearAverage(-100, 1) //SKIP
 	ma.AddSampleIfNearAverage(2000, 1)
 	ma.AddSampleIfNearAverage(1000, 1.1)
 	assert.Equal(t, 1400.0, ma.Average())
+}
+
+func TestMovingAverageMinMax1(t *testing.T) {
+	ma := NewMovingAverage(5)
+	ma.AddSampleIfNearAverage(1000, 1)
+	ma.AddSampleIfNearAverage(1000, 1)
+	ma.AddSampleIfNearAverage(1000, 1)
+	ma.AddSampleIfNearAverage(1000, 1)
+	ma.AddSampleIfNearAverage(1000, 1)
+	ma.AddSampleIfNearAverage(1000, 1)
+
+	min, max := ma.AverageMinMax(2)
+	assert.Equal(t, 1000.0, min)
+	assert.Equal(t, 1000.0, max)
+
+	ma.AddSampleIfNearAverage(1010, 2)
+	ma.AddSampleIfNearAverage(1010, 2)
+	ma.AddSampleIfNearAverage(1010, 2)
+	ma.AddSampleIfNearAverage(1010, 2)
+	ma.AddSampleIfNearAverage(1010, 2)
+	min, max = ma.AverageMinMax(2)
+	assert.Equal(t, 1010.0, min)
+	assert.Equal(t, 1010.0, max)
+
+	ma.AddSampleIfNearAverage(950, 2)
+	ma.AddSampleIfNearAverage(1010, 2)
+	ma.AddSampleIfNearAverage(950, 2)
+	ma.AddSampleIfNearAverage(1010, 2)
+	ma.AddSampleIfNearAverage(950, 2)
+	ma.AddSampleIfNearAverage(1010, 2)
+	min, max = ma.AverageMinMax(2)
+	assert.Equal(t, 970.0, min)
+	assert.Equal(t, 1010.0, max)
+
+	ma.AddSampleIfNearAverage(850, 2)
+	ma.AddSampleIfNearAverage(1020, 2)
+	ma.AddSampleIfNearAverage(940, 2)
+	ma.AddSampleIfNearAverage(1000, 2)
+	ma.AddSampleIfNearAverage(810, 2)
+	ma.AddSampleIfNearAverage(1040, 2)
+	min, max = ma.AverageMinMax(2)
+	assert.Equal(t, 930.0, min)
+	assert.Equal(t, 1020.0, max)
+}
+
+func TestMovingAverageMinMax2(t *testing.T) {
+	ma := NewMovingAverage(5)
+	for i := 200; i < 500; i++ {
+		v := i + rand.Intn(10)
+		ma.AddSampleIfNearAverage(float64(v), 2)
+		time.Sleep(10 * time.Millisecond)
+		min, max := ma.AverageMinMax(10)
+		assert.LessOrEqualf(t, max-min, 15.0, "max-min average should be low")
+	}
 }
