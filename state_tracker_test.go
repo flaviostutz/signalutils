@@ -2,6 +2,7 @@ package signalutils
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -42,7 +43,7 @@ func TestStateTracker2(t *testing.T) {
 
 func TestStateTrackerOnUnchanged(t *testing.T) {
 	notifiedUnchangedState = ""
-	st := NewStateTracker("state1", 3, onChange, 2, onUnchanged)
+	st := NewStateTracker("state1", 3, onChange, 100*time.Millisecond, onUnchanged)
 	st.SetTransientState("state2")
 	assert.Equal(t, "", notifiedUnchangedState)
 	st.SetTransientState("state2")
@@ -51,11 +52,13 @@ func TestStateTrackerOnUnchanged(t *testing.T) {
 	assert.Equal(t, "state2", st.CurrentState)
 	assert.Equal(t, "", notifiedUnchangedState)
 	st.SetTransientState("state2")
+	time.Sleep(110 * time.Millisecond)
 	assert.Equal(t, "state2", notifiedUnchangedState)
 	notifiedUnchangedState = ""
 	st.SetTransientState("state2")
 	assert.Equal(t, "", notifiedUnchangedState)
 	st.SetTransientState("state2")
+	time.Sleep(110 * time.Millisecond)
 	assert.Equal(t, "state2", notifiedUnchangedState)
 }
 
@@ -64,6 +67,6 @@ func onChange(news string, previous string, data interface{}) {
 	notifiedPreviousState = previous
 }
 
-func onUnchanged(state string, counter int, data interface{}) {
+func onUnchanged(state string, stateDuration time.Duration, data interface{}) {
 	notifiedUnchangedState = state
 }
