@@ -8,16 +8,17 @@ import (
 
 //StateTracker state transition tracker
 type StateTracker struct {
-	onChange             func(*State, *State)
-	onUnchanged          func(*State)
-	CurrentState         *State
-	CandidateState       string
-	CandidateCount       int
-	lastUnchanged        time.Time
-	changeConfirmations  int
-	partialStateDuration time.Duration
-	highestLevelCheck    float64
-	active               bool
+	onChange                func(*State, *State)
+	onUnchanged             func(*State)
+	CurrentState            *State
+	CandidateState          string
+	CandidateCount          int
+	lastUnchanged           time.Time
+	changeConfirmations     int
+	unchangedTimer          time.Duration
+	highestLevel            float64
+	resetHighestOnunchanged bool
+	active                  bool
 }
 
 //State event struct
@@ -36,24 +37,26 @@ type State struct {
 //initialState - states are simply strings. a different string denotes a new state
 //changeConfirmations - number of sequential state samples with a different state before transitioning
 //onChange - listener function that will be called on state transition. ex.: func(newState, previousState) {}. nil value disables this
-//partialStateDuration - after this time without changing state, 'onUnchanged' func will be invoked recurrently. current highest sample will be calculated based on this time slice
+//unchangedTimer - after this time without changing state, 'onUnchanged' func will be invoked recurrently//. current highest sample will be calculated based on this time slice
 //onUnchanged - listener function to be invoked if state is not changed after unchangedStateCount. onUnchanged(state). nil value disables this feature
-func NewStateTracker(initialState string, changeConfirmations int, onChange func(*State, *State), partialStateDuration time.Duration, onUnchanged func(*State)) *StateTracker {
+//highestLevelAccordingToUnchangedTimer - calculate highest level according to whole state duration (false) or only during the onChanged recurrent timer
+func NewStateTracker(initialState string, changeConfirmations int, onChange func(*State, *State), unchangedTimer time.Duration, onUnchanged func(*State), resetHighestOnunchanged bool) *StateTracker {
 	state := State{
 		Name:  initialState,
 		Start: time.Now(),
 	}
 	s1 := StateTracker{
-		onChange:             onChange,
-		CurrentState:         &state,
-		lastUnchanged:        time.Now(),
-		CandidateState:       "",
-		CandidateCount:       0,
-		changeConfirmations:  changeConfirmations,
-		partialStateDuration: partialStateDuration,
-		onUnchanged:          onUnchanged,
-		highestLevelCheck:    -math.MaxFloat64,
-		active:               true,
+		onChange:                onChange,
+		CurrentState:            &state,
+		lastUnchanged:           time.Now(),
+		CandidateState:          "",
+		CandidateCount:          0,
+		changeConfirmations:     changeConfirmations,
+		unchangedTimer:          unchangedTimer,
+		onUnchanged:             onUnchanged,
+		highestLevel:            -math.MaxFloat64,
+		active:                  true,
+		resetHighestOnunchanged: resetHighestOnunchanged,
 	}
 	go s1.verifyUnchanged()
 	return &s1
@@ -78,8 +81,8 @@ func (s *StateTracker) SetTransientStateWithData(stateName string, level float64
 		s.CandidateCount = 1
 		s.CurrentState.Data = data
 		s.CurrentState.Level = &level
-		if level > s.highestLevelCheck {
-			s.highestLevelCheck = level
+		if level > s.highestLevel {
+			s.highestLevel = level
 			s.CurrentState.HighestLevel = &level
 			s.CurrentState.HighestData = data
 			now := time.Now()
@@ -119,7 +122,7 @@ func (s *StateTracker) SetTransientStateWithData(stateName string, level float64
 		}
 		s.CandidateState = ""
 		s.CandidateCount = 0
-		s.highestLevelCheck = -math.MaxFloat64
+		s.highestLevel = -math.MaxFloat64
 		s.lastUnchanged = time.Now()
 	}
 
@@ -135,13 +138,15 @@ func (s *StateTracker) verifyUnchanged() {
 	for ok := s.active; ok; ok = s.active {
 		// fmt.Printf(">>> VERIFY UNCHANGED current=%s\n", s.CurrentState)
 		elapsed := time.Duration((time.Now().UnixNano() - s.lastUnchanged.UnixNano()))
-		if s.onUnchanged != nil && (elapsed.Nanoseconds() > s.partialStateDuration.Nanoseconds()) {
+		if s.onUnchanged != nil && (elapsed.Nanoseconds() > s.unchangedTimer.Nanoseconds()) {
 			// fmt.Printf("NOTIFY %s\n", s.CurrentState)
 			s.lastUnchanged = time.Now()
-			s.highestLevelCheck = -math.MaxFloat64
+			if s.resetHighestOnunchanged {
+				s.highestLevel = -math.MaxFloat64
+			}
 			onUnchanged := s.onUnchanged
 			onUnchanged(s.CurrentState)
 		}
-		time.Sleep(s.partialStateDuration / 2)
+		time.Sleep(s.unchangedTimer / 2)
 	}
 }
