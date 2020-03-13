@@ -2,41 +2,58 @@ package signalutils
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
 //StateTracker state transition tracker
 type StateTracker struct {
-	onChange               func(string, string, interface{})
-	CurrentState           string
-	CurrentStateData       interface{}
-	CurrentStateStart      time.Time
-	CandidateState         string
-	CandidateCount         int
-	lastUnchanged          time.Time
-	changeConfirmations    int
-	unchangedStateDuration time.Duration
-	onUnchanged            func(string, time.Duration, interface{})
-	active                 bool
+	onChange             func(*State, *State)
+	onUnchanged          func(*State)
+	CurrentState         *State
+	CandidateState       string
+	CandidateCount       int
+	lastUnchanged        time.Time
+	changeConfirmations  int
+	partialStateDuration time.Duration
+	highestLevelCheck    float64
+	active               bool
+}
+
+//State event struct
+type State struct {
+	Name         string
+	Start        time.Time
+	Stop         *time.Time
+	Data         interface{}
+	Level        *float64
+	HighestLevel *float64
+	HighestTime  *time.Time
+	HighestData  interface{}
 }
 
 //NewStateTracker new state transition tracker instantiation
 //initialState - states are simply strings. a different string denotes a new state
 //changeConfirmations - number of sequential state samples with a different state before transitioning
 //onChange - listener function that will be called on state transition. ex.: func(newState, previousState) {}. nil value disables this
-//unchangedStateCount - after this number of state samples without changing state, 'onUnchanged' func will be invoked recurrently
-//onUnchanged - listener function to be invoked if state is not changed after unchangedStateCount. onUnchanged(state, stateCounter, data). nil value disables this feature
-func NewStateTracker(initialState string, changeConfirmations int, onChange func(string, string, interface{}), unchangedStateDuration time.Duration, onUnchanged func(string, time.Duration, interface{})) *StateTracker {
+//partialStateDuration - after this time without changing state, 'onUnchanged' func will be invoked recurrently. current highest sample will be calculated based on this time slice
+//onUnchanged - listener function to be invoked if state is not changed after unchangedStateCount. onUnchanged(state). nil value disables this feature
+func NewStateTracker(initialState string, changeConfirmations int, onChange func(*State, *State), partialStateDuration time.Duration, onUnchanged func(*State)) *StateTracker {
+	state := State{
+		Name:  initialState,
+		Start: time.Now(),
+	}
 	s1 := StateTracker{
-		onChange:               onChange,
-		CurrentState:           initialState,
-		lastUnchanged:          time.Now(),
-		CandidateState:         "",
-		CandidateCount:         0,
-		changeConfirmations:    changeConfirmations,
-		unchangedStateDuration: unchangedStateDuration,
-		onUnchanged:            onUnchanged,
-		active:                 true,
+		onChange:             onChange,
+		CurrentState:         &state,
+		lastUnchanged:        time.Now(),
+		CandidateState:       "",
+		CandidateCount:       0,
+		changeConfirmations:  changeConfirmations,
+		partialStateDuration: partialStateDuration,
+		onUnchanged:          onUnchanged,
+		highestLevelCheck:    -math.MaxFloat64,
+		active:               true,
 	}
 	go s1.verifyUnchanged()
 	return &s1
@@ -44,29 +61,38 @@ func NewStateTracker(initialState string, changeConfirmations int, onChange func
 
 //SetTransientState sets a transient state to tracker so that it can find possible transitions if this state gets recurrent
 //returns the time this state started
-func (s *StateTracker) SetTransientState(state string) (time.Time, error) {
-	return s.SetTransientStateWithData(state, nil)
+func (s *StateTracker) SetTransientState(stateName string) (*State, error) {
+	return s.SetTransientStateWithData(stateName, 0.0, nil)
 }
 
 //SetTransientStateWithData sets a transient state to tracker so that it can find possible transitions if this state gets recurrent
 //data is any type that will be sent to listener function
 //returns current state count
-func (s *StateTracker) SetTransientStateWithData(state string, data interface{}) (time.Time, error) {
+func (s *StateTracker) SetTransientStateWithData(stateName string, level float64, data interface{}) (*State, error) {
 	if !s.active {
-		return time.Time{}, fmt.Errorf("State tracker not active")
+		return &State{}, fmt.Errorf("State tracker not active")
 	}
 	// fmt.Printf("setcurrentstate state=%s\n", state)
-	if state == s.CurrentState {
+	if stateName == s.CurrentState.Name {
 		s.CandidateState = ""
 		s.CandidateCount = 1
-		s.CurrentStateData = data
-		return s.CurrentStateStart, nil
+		s.CurrentState.Data = data
+		s.CurrentState.Level = &level
+		if level > s.highestLevelCheck {
+			s.highestLevelCheck = level
+			s.CurrentState.HighestLevel = &level
+			s.CurrentState.HighestData = data
+			now := time.Now()
+			s.CurrentState.HighestTime = &now
+		}
+
+		return s.CurrentState, nil
 	}
 
 	// fmt.Printf("Candidate current=%s state=%s candidate=%s count=%d\n", s.CurrentState, state, s.CandidateState, s.CandidateCount)
 	//new candidate state
-	if s.CandidateState != state {
-		s.CandidateState = state
+	if s.CandidateState != stateName {
+		s.CandidateState = stateName
 		s.CandidateCount = 1
 		// fmt.Printf("NEW CANDIDATE CC=%d\n", s.CandidateCount)
 
@@ -76,21 +102,28 @@ func (s *StateTracker) SetTransientStateWithData(state string, data interface{})
 		// fmt.Printf("INCREMENTED CC=%d\n", s.CandidateCount)
 	}
 
-	//candidate confirmed
+	//state transition. candidate confirmed
 	if s.CandidateCount >= s.changeConfirmations {
 		// fmt.Printf("Candidate confirm! candidateCount=%d changeConfirmations=%d state=%s\n", s.CandidateCount, s.changeConfirmations, state)
-		if s.onChange != nil {
-			s.onChange(state, s.CurrentState, data)
+		prevState := s.CurrentState
+		now := time.Now()
+		prevState.Stop = &now
+		s.CurrentState = &State{
+			Name:  stateName,
+			Start: time.Now(),
+			Data:  data,
 		}
-		s.CurrentState = state
-		s.CurrentStateStart = time.Now()
+		if s.onChange != nil {
+			onChange := s.onChange
+			onChange(prevState, s.CurrentState)
+		}
 		s.CandidateState = ""
 		s.CandidateCount = 0
+		s.highestLevelCheck = -math.MaxFloat64
 		s.lastUnchanged = time.Now()
-		// fmt.Printf("CURRENT STATE CONFIRMED %s\n", s.CurrentState)
 	}
 
-	return s.CurrentStateStart, nil
+	return s.CurrentState, nil
 }
 
 //Close closes the internal timers for notifying unchanged
@@ -102,11 +135,13 @@ func (s *StateTracker) verifyUnchanged() {
 	for ok := s.active; ok; ok = s.active {
 		// fmt.Printf(">>> VERIFY UNCHANGED current=%s\n", s.CurrentState)
 		elapsed := time.Duration((time.Now().UnixNano() - s.lastUnchanged.UnixNano()))
-		if s.onUnchanged != nil && (elapsed.Nanoseconds() > s.unchangedStateDuration.Nanoseconds()) {
+		if s.onUnchanged != nil && (elapsed.Nanoseconds() > s.partialStateDuration.Nanoseconds()) {
 			// fmt.Printf("NOTIFY %s\n", s.CurrentState)
 			s.lastUnchanged = time.Now()
-			s.onUnchanged(s.CurrentState, elapsed, s.CurrentStateData)
+			s.highestLevelCheck = -math.MaxFloat64
+			onUnchanged := s.onUnchanged
+			onUnchanged(s.CurrentState)
 		}
-		time.Sleep(s.unchangedStateDuration / 2)
+		time.Sleep(s.partialStateDuration / 2)
 	}
 }
