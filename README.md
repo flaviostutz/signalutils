@@ -37,3 +37,16 @@ Average is 25749.750000
 Average is 21999.800000
 Average is 4000.000000
 ```
+
+## Utilities
+
+* MovingAverage - add values to an array with a fixed max size and query for the average of values in this fixed size array
+
+* SchmittTrigger - set current values and track current up/down state based on schmitt trigger algorithm
+
+* StateTracker - set state identifications and if state has lots of successive repetitions, perform a state transition. Useful to filter out noises from state changes.
+
+* Timeseries - time/value array with max time span for keeping size at control
+
+* TimeseriesRate - add counter values to a timeseries and query for rate at any time range. Something that ressembles "rate(metric_name[1m])" on Prometheus queries, for example.
+
