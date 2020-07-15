@@ -26,6 +26,14 @@ func (t *TimeseriesCounterRate) Inc(value float64) error {
 	return nil
 }
 
+func (t *TimeseriesCounterRate) Set(value float64) error {
+	if value < t.ccounter {
+		return fmt.Errorf("value cannot be less than current counter")
+	}
+	t.Timeseries.AddSample(value)
+	return nil
+}
+
 func (t *TimeseriesCounterRate) Rate(timeSpan time.Duration) (float64, bool) {
 	if timeSpan > t.Timeseries.TimeseriesSpan {
 		return 0, false
