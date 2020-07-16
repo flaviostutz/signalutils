@@ -38,7 +38,7 @@ func TestRate2(t *testing.T) {
 
 	r, ok := ts.Rate(750 * time.Millisecond)
 	assert.True(t, ok)
-	assert.InDeltaf(t, float64(466666), r, float64(3000), "")
+	assert.InDeltaf(t, float64(466666), r, float64(10000), "")
 }
 
 func TestRate3(t *testing.T) {

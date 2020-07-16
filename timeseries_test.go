@@ -75,10 +75,10 @@ func TestTSGetInterpolated1(t *testing.T) {
 	time.Sleep(30 * time.Millisecond)
 
 	ts.AddSample(10)
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	ts.AddSample(30)
 
-	nv, ok := ts.GetValue(time.Now().Add(-5 * time.Millisecond))
+	nv, ok := ts.GetValue(time.Now().Add(-50 * time.Millisecond))
 	assert.True(t, ok)
 	assert.InDeltaf(t, float64(20), nv.Value, float64(5), "")
 }
@@ -87,10 +87,10 @@ func TestTSGetInterpolated2(t *testing.T) {
 	ts := NewTimeseries(5000 * time.Millisecond)
 
 	ts.AddSample(100)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	ts.AddSample(30)
 
-	nv, ok := ts.GetValue(time.Now().Add(-20 * time.Millisecond))
+	nv, ok := ts.GetValue(time.Now().Add(-200 * time.Millisecond))
 	assert.True(t, ok)
 	assert.InDeltaf(t, float64(58), nv.Value, float64(5), "")
 }
@@ -111,25 +111,25 @@ func TestTSGetInterpolated4(t *testing.T) {
 	ts := NewTimeseries(1000 * time.Millisecond)
 
 	ts.AddSample(-100)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	ts.AddSample(-1000)
 
-	nv, ok := ts.GetValue(time.Now().Add(-25 * time.Millisecond))
+	nv, ok := ts.GetValue(time.Now().Add(-250 * time.Millisecond))
 	assert.True(t, ok)
-	assert.InDeltaf(t, float64(-555), nv.Value, float64(20), "")
+	assert.InDeltaf(t, float64(-555), nv.Value, float64(50), "")
 }
 
 func TestTSReset(t *testing.T) {
 	ts := NewTimeseries(1000 * time.Millisecond)
 
 	ts.AddSample(-100)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	ts.AddSample(-1000)
 
 	assert.Equal(t, 2, ts.Size())
 
 	ts.Reset()
-	_, ok := ts.GetValue(time.Now().Add(-25 * time.Millisecond))
+	_, ok := ts.GetValue(time.Now().Add(-250 * time.Millisecond))
 	assert.False(t, ok)
 
 	assert.Equal(t, 0, ts.Size())
@@ -142,7 +142,7 @@ func TestTSLastValue(t *testing.T) {
 	assert.False(t, ok)
 
 	ts.AddSample(-100)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	ts.AddSample(-1000)
 
 	v, ok := ts.GetLastValue()
