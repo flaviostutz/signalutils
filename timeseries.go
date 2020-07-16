@@ -4,17 +4,22 @@ import (
 	"time"
 )
 
+//TimeValue a point in time
 type TimeValue struct {
 	Time  time.Time
 	Value float64
 }
 
+//Timeseries utility
 type Timeseries struct {
 	TimeseriesSpan time.Duration
 	Values         []TimeValue
 	// gc             int
 }
 
+//NewTimeseries create a new timeseries with a limited size in time.
+//After that limit older values will be deleted from time to time to
+//avoid too much memory usage
 func NewTimeseries(maxTimeseriesSpan time.Duration) Timeseries {
 	return Timeseries{
 		TimeseriesSpan: maxTimeseriesSpan,
@@ -22,6 +27,7 @@ func NewTimeseries(maxTimeseriesSpan time.Duration) Timeseries {
 	}
 }
 
+//AddSample add a new sample to this timeseries using time.Now()
 func (t *Timeseries) AddSample(value float64) {
 	t.Values = append(t.Values, TimeValue{time.Now(), value})
 	// t.gc = t.gc + 1
@@ -34,6 +40,9 @@ func (t *Timeseries) AddSample(value float64) {
 	// }
 }
 
+//GetValue get value in a specific time in timeseries.
+//If time is between two points inside timeseries, the value will
+//be interpolated according to the requested time and neighboring values
 func (t *Timeseries) GetValue(time time.Time) (TimeValue, bool) {
 	i1, i2, ok := t.FindPos(time)
 	if !ok {
@@ -51,10 +60,13 @@ func (t *Timeseries) GetValue(time time.Time) (TimeValue, bool) {
 	return TimeValue{time, vdr}, true
 }
 
+//Size current number of elements in this timeseries
 func (t *Timeseries) Size() int {
 	return len(t.Values)
 }
 
+//FindPos searches for which two point indexes are between the desired time
+//Find the time is exacly the same as a point time, the two returned indexes will be equal
 func (t *Timeseries) FindPos(time time.Time) (int, int, bool) {
 	for i1, v1 := range t.Values {
 		if v1.Time == time {
@@ -74,10 +86,12 @@ func (t *Timeseries) FindPos(time time.Time) (int, int, bool) {
 	return -1, -1, false
 }
 
+//Reset remove all elements from this timeseries
 func (t *Timeseries) Reset() {
 	t.Values = make([]TimeValue, 0)
 }
 
+//GetLastValue get last point in time element, the head element
 func (t *Timeseries) GetLastValue() (TimeValue, bool) {
 	l := len(t.Values)
 	if l == 0 {

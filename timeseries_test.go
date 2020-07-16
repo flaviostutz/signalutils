@@ -99,10 +99,10 @@ func TestTSGetInterpolated3(t *testing.T) {
 	ts := NewTimeseries(1000 * time.Millisecond)
 
 	ts.AddSample(-100)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	ts.AddSample(100)
 
-	nv, ok := ts.GetValue(time.Now().Add(-25 * time.Millisecond))
+	nv, ok := ts.GetValue(time.Now().Add(-250 * time.Millisecond))
 	assert.True(t, ok)
 	assert.InDeltaf(t, float64(0), nv.Value, float64(5), "")
 }
@@ -147,5 +147,5 @@ func TestTSLastValue(t *testing.T) {
 
 	v, ok := ts.GetLastValue()
 	assert.True(t, ok)
-	assert.Equal(t, -1000, v.Value)
+	assert.Equal(t, float64(-1000), v.Value)
 }

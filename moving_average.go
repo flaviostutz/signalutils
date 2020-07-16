@@ -77,9 +77,12 @@ func (m *MovingAverage) AddSample(value float64) bool {
 	return true
 }
 
-//AddSampleIfNearAverage Add sample only if its value is near current average to avoid espurious samples to be added to the average.
-//avgDiff 1 means samples between [-currentAvg, +currentAvg] will be accepted.
-//Returns true if sample was accepted
+/*
+AddSampleIfNearAverage Add sample only if its value is near current average to
+avoid espurious samples to be added to the average.
+*avgDiff* 1 means samples between [-currentAvg, +currentAvg] will be accepted.
+Returns true if sample was accepted
+*/
 func (m *MovingAverage) AddSampleIfNearAverage(value float64, avgDiff float64) bool {
 	avg := m.Average()
 	if math.IsNaN(avg) || (math.Abs(avg-value) <= (avg * avgDiff)) {
