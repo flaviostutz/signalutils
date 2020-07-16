@@ -2,7 +2,7 @@
 
 Event/Signal processing utilities lib for Golang. Online moving averager, linear regression, timed value, worker frequency control in Golang etc
 
-See API documentation at https://godoc.org/github.com/flaviostutz/signalutils
+See API documentation at https://pkg.go.dev/github.com/flaviostutz/signalutils?tab=doc
 
 ## Usage
 
