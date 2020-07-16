@@ -27,7 +27,7 @@ type Worker struct {
 type StepFunc func() error
 
 //StartWorker launches a Go routine looping in this step function limiting by maxFreq
-//if the function is being run in a frequency less than minFreq, a logrus.Info log will show this
+//if the function is being run in a frequency less than minFreq, a logrus.Debug log will show this
 //this situation happens when the function is too slow
 func StartWorker(name string, step StepFunc, minFreq float64, maxFreq float64, stopOnErr bool) *Worker {
 	c := &Worker{
@@ -40,7 +40,7 @@ func StartWorker(name string, step StepFunc, minFreq float64, maxFreq float64, s
 		stopOnErr: stopOnErr,
 		active:    false,
 	}
-	logrus.Tracef("Starting goroutine for %s", name)
+	logrus.Tracef("%s: starting goroutine", name)
 	go c.run()
 	return c
 }
@@ -57,6 +57,7 @@ func (c *Worker) run() {
 		select {
 		case <-c.done:
 			c.active = false
+			logrus.Tracef("%s: deactivated", c.name)
 			return
 		case <-c.ticker.C:
 			stepStart := time.Now()
@@ -64,9 +65,9 @@ func (c *Worker) run() {
 			c.CurrentStepTime = time.Since(stepStart)
 			loopElapsed := time.Since(loopStart)
 			c.CurrentFreq = float64(1) / loopElapsed.Seconds()
-			logrus.Debugf("%s: STEP time=%d ms; loop freq=%.2f", c.name, c.CurrentStepTime.Milliseconds(), c.CurrentFreq)
+			logrus.Tracef("%s: STEP time=%d ms; loop freq=%.2f", c.name, c.CurrentStepTime.Milliseconds(), c.CurrentFreq)
 			if err != nil {
-				logrus.Infof("%s: STEP err=%s", c.name, err)
+				logrus.Debugf("%s: STEP err=%s", c.name, err)
 				if c.stopOnErr {
 					c.active = false
 					return
