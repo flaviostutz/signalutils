@@ -10,7 +10,8 @@ import (
 //the max frequency of calls to this function is limited and
 //the actual frequency is measured
 type Worker struct {
-	maxFreq         int
+	minFreq         float64
+	maxFreq         float64
 	ticker          *time.Ticker
 	done            chan (bool)
 	step            StepFunc
@@ -26,12 +27,15 @@ type Worker struct {
 type StepFunc func() error
 
 //StartWorker launches a Go routine looping in this step function limiting by maxFreq
-func StartWorker(name string, step StepFunc, maxFreq int, stopOnErr bool) *Worker {
+//if the function is being run in a frequency less than minFreq, a logrus.Info log will show this
+//this situation happens when the function is too slow
+func StartWorker(name string, step StepFunc, minFreq float64, maxFreq float64, stopOnErr bool) *Worker {
 	c := &Worker{
 		name:      name,
+		minFreq:   minFreq,
 		maxFreq:   maxFreq,
 		done:      make(chan bool),
-		ticker:    time.NewTicker(time.Duration((int(time.Second) / maxFreq))),
+		ticker:    time.NewTicker(time.Duration((float64(time.Second) / maxFreq))),
 		step:      step,
 		stopOnErr: stopOnErr,
 		active:    false,
@@ -67,6 +71,9 @@ func (c *Worker) run() {
 					c.active = false
 					return
 				}
+			}
+			if c.CurrentFreq < c.minFreq {
+				logrus.Infof("%s: STEP too slow; loop freq=%.2f (min=%.2f)", c.name, c.CurrentFreq, c.minFreq)
 			}
 		}
 	}

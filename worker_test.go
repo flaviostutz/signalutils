@@ -13,7 +13,7 @@ func TestWorkerStepError(t *testing.T) {
 	w := StartWorker("test1", func() error {
 		time.Sleep(200 * time.Millisecond)
 		return fmt.Errorf("Error here")
-	}, 5, true)
+	}, 3, 5, true)
 	time.Sleep(100 * time.Millisecond)
 	assert.True(t, w.active)
 	time.Sleep(400 * time.Millisecond)
@@ -25,7 +25,7 @@ func TestWorkerStepFreq(t *testing.T) {
 	w := StartWorker("test1", func() error {
 		time.Sleep(15 * time.Millisecond)
 		return nil
-	}, 5, true)
+	}, 3.0, 5.0, true)
 	time.Sleep(200 * time.Millisecond)
 	assert.True(t, w.active)
 	time.Sleep(2000 * time.Millisecond)

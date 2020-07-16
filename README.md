@@ -1,5 +1,7 @@
 # signalutils
 
+[![Build Status](https://travis-ci.org/flaviostutz/signalutils.svg?branch=master)](https://travis-ci.org/flaviostutz/signalutils)
+
 Event/Signal processing utilities lib for Golang. Online moving averager, linear regression, timed value, worker frequency control in Golang etc
 
 See API documentation at https://pkg.go.dev/github.com/flaviostutz/signalutils?tab=doc
