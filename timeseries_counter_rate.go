@@ -32,7 +32,7 @@ func (t *TimeseriesCounterRate) Inc(value float64) error {
 		return fmt.Errorf("value cannot be negative")
 	}
 	t.ccounter = t.ccounter + value
-	t.Timeseries.AddSample(t.ccounter)
+	t.Timeseries.Add(t.ccounter)
 	return nil
 }
 
@@ -42,7 +42,7 @@ func (t *TimeseriesCounterRate) Set(value float64) error {
 	if value < t.ccounter {
 		return fmt.Errorf("value cannot be less than current counter")
 	}
-	t.Timeseries.AddSample(value)
+	t.Timeseries.Add(value)
 	return nil
 }
 
@@ -53,12 +53,12 @@ func (t *TimeseriesCounterRate) Rate(timeSpan time.Duration) (float64, bool) {
 		return 0, false
 	}
 
-	v2, ok := t.Timeseries.GetLastValue()
+	v2, ok := t.Timeseries.Last()
 	if !ok {
 		return 0, false
 	}
 
-	v1, ok := t.Timeseries.GetValue(v2.Time.Add(-timeSpan))
+	v1, ok := t.Timeseries.Get(v2.Time.Add(-timeSpan))
 	if !ok {
 		return 0, false
 	}

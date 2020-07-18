@@ -27,12 +27,12 @@ func NewTimeseries(maxTimeseriesSpan time.Duration) Timeseries {
 	}
 }
 
-//AddSample add a new sample to this timeseries using time.Now()
-func (t *Timeseries) AddSample(value float64) {
+//Add add a new sample to this timeseries using time.Now()
+func (t *Timeseries) Add(value float64) {
 	t.Values = append(t.Values, TimeValue{time.Now(), value})
 	// t.gc = t.gc + 1
 	// if t.gc > 5 {
-	i1, _, ok := t.FindPos(time.Now().Add(-t.TimeseriesSpan - 1*time.Second))
+	i1, _, ok := t.Pos(time.Now().Add(-t.TimeseriesSpan - 1*time.Second))
 	if ok && i1 > 1 {
 		t.Values = t.Values[i1-1:]
 	}
@@ -40,11 +40,11 @@ func (t *Timeseries) AddSample(value float64) {
 	// }
 }
 
-//GetValue get value in a specific time in timeseries.
+//Get get value in a specific time in timeseries.
 //If time is between two points inside timeseries, the value will
 //be interpolated according to the requested time and neighboring values
-func (t *Timeseries) GetValue(time time.Time) (TimeValue, bool) {
-	i1, i2, ok := t.FindPos(time)
+func (t *Timeseries) Get(time time.Time) (TimeValue, bool) {
+	i1, i2, ok := t.Pos(time)
 	if !ok {
 		return TimeValue{}, false
 	}
@@ -65,9 +65,9 @@ func (t *Timeseries) Size() int {
 	return len(t.Values)
 }
 
-//FindPos searches for which two point indexes are between the desired time
+//Pos searches for which two point indexes are between the desired time
 //Find the time is exacly the same as a point time, the two returned indexes will be equal
-func (t *Timeseries) FindPos(time time.Time) (int, int, bool) {
+func (t *Timeseries) Pos(time time.Time) (int, int, bool) {
 	for i1, v1 := range t.Values {
 		if v1.Time == time {
 			return i1, i1, true
@@ -91,11 +91,25 @@ func (t *Timeseries) Reset() {
 	t.Values = make([]TimeValue, 0)
 }
 
-//GetLastValue get last point in time element, the head element
-func (t *Timeseries) GetLastValue() (TimeValue, bool) {
+//Last get last point in time element, the head element
+func (t *Timeseries) Last() (TimeValue, bool) {
 	l := len(t.Values)
 	if l == 0 {
 		return TimeValue{}, false
 	}
 	return t.Values[l-1], true
+}
+
+//Avg calculates the average value of points compreended between time 'from' and 'to'
+//No interpolation is used here
+func (t *Timeseries) Avg(from time.Time, to time.Time) (float64, bool) {
+	sum := 0.0
+	c := 0
+	for _, v := range t.Values {
+		if (v.Time == from || v.Time.After(from)) && (v.Time == to || v.Time.Before(to)) {
+			sum = sum + v.Value
+			c = c + 1
+		}
+	}
+	return sum / float64(c), true
 }
