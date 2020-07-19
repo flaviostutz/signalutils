@@ -149,3 +149,83 @@ func TestTSLastValue(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, float64(-1000), v.Value)
 }
+
+func TestTSStdDev1(t *testing.T) {
+	ts := NewTimeseries(1000 * time.Millisecond)
+
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+
+	stddev, mean := ts.StdDev(time.Now().Add(-10*time.Second), time.Now())
+	assert.Equal(t, stddev, 0.0)
+	assert.Equal(t, mean, 10.0)
+}
+
+func TestTSStdDev2(t *testing.T) {
+	ts := NewTimeseries(1000 * time.Millisecond)
+
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(15)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(5)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+
+	stddev, mean := ts.StdDev(time.Now().Add(-10*time.Second), time.Now())
+	assert.InDeltaf(t, 3.535, stddev, 0.01, "")
+	assert.Equal(t, mean, 10.0)
+}
+
+func TestTSLinearRegression1(t *testing.T) {
+	ts := NewTimeseries(1000 * time.Millisecond)
+
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(15)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(5)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(10)
+	time.Sleep(10 * time.Millisecond)
+
+	a, b, r := ts.LinearRegression(time.Now().Add(-10*time.Second), time.Now())
+	assert.InDeltaf(t, 1.4e+11, a, 0.4e+11, "")
+	yy := a + b*float64(time.Now().UnixNano())
+	assert.InDeltaf(t, 7.0, yy, 0.5, "")
+	assert.InDeltaf(t, 1.0, r, 0.1, "")
+}
+
+func TestTSLinearRegression2(t *testing.T) {
+	ts := NewTimeseries(1000 * time.Millisecond)
+
+	ts.Add(0)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(-3)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(-5)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(-7)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(-9)
+	time.Sleep(10 * time.Millisecond)
+	ts.Add(-11)
+	time.Sleep(10 * time.Millisecond)
+
+	a, b, r := ts.LinearRegression(time.Now().Add(-10*time.Second), time.Now())
+	assert.InDeltaf(t, 3.0e+11, a, 1.0e+11, "")
+	yy := a + b*float64(time.Now().UnixNano())
+	assert.InDeltaf(t, -13.0, yy, 1.0, "")
+	assert.InDeltaf(t, 1.0, r, 0.1, "")
+}

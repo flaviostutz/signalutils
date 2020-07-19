@@ -2,6 +2,8 @@ package signalutils
 
 import (
 	"time"
+
+	"github.com/gonum/stat"
 )
 
 //TimeValue a point in time
@@ -112,4 +114,41 @@ func (t *Timeseries) Avg(from time.Time, to time.Time) (float64, bool) {
 		}
 	}
 	return sum / float64(c), true
+}
+
+//ValuesRange get values in time range
+//returns an array of TimeValue and and array with just the float values
+func (t *Timeseries) ValuesRange(from time.Time, to time.Time) ([]TimeValue, []float64) {
+	vs := make([]TimeValue, 0)
+	values := make([]float64, 0)
+	for _, v := range t.Values {
+		vs = append(vs, v)
+		values = append(values, v.Value)
+	}
+	return vs, values
+}
+
+//StdDev calculates the standard deviation and mean for the time range
+//returns standard deviation and mean value
+func (t *Timeseries) StdDev(from time.Time, to time.Time) (std float64, mean float64) {
+	_, values := t.ValuesRange(from, to)
+	mean, std = stat.MeanStdDev(values, nil)
+	return std, mean
+}
+
+//LinearRegression calculates the linear regression coeficients for the time range
+//x is in range of time.UnixNano()
+//returns alpha and beta as for y = alpha + beta*x and rsquared with fit from 0-1
+func (t *Timeseries) LinearRegression(from time.Time, to time.Time) (alpha float64, beta float64, rsquared float64) {
+	vs, _ := t.ValuesRange(from, to)
+	x := make([]float64, 0)
+	y := make([]float64, 0)
+	for _, v := range vs {
+		// x = append(x, float64(v.Time.UnixNano()-vs[0].Time.UnixNano()))
+		x = append(x, float64(v.Time.UnixNano()))
+		y = append(y, v.Value)
+	}
+	alpha, beta = stat.LinearRegression(x, y, nil, false)
+	rsquared = stat.RSquared(x, y, nil, alpha, beta)
+	return alpha, beta, rsquared
 }
