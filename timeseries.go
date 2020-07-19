@@ -1,6 +1,7 @@
 package signalutils
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gonum/stat"
@@ -31,15 +32,34 @@ func NewTimeseries(maxTimeseriesSpan time.Duration) Timeseries {
 
 //Add add a new sample to this timeseries using time.Now()
 func (t *Timeseries) Add(value float64) {
-	t.Values = append(t.Values, TimeValue{time.Now(), value})
-	// t.gc = t.gc + 1
-	// if t.gc > 5 {
-	i1, _, ok := t.Pos(time.Now().Add(-t.TimeseriesSpan - 1*time.Second))
-	if ok && i1 > 1 {
-		t.Values = t.Values[i1-1:]
+	t.AddWithTime(value, time.Now())
+}
+
+//AddWithTime adds ad new sample to the head of this timeseries
+//'when' must be after the last element (no middle insertions allowed)
+func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
+	l, ok := t.Last()
+	if ok {
+		if len(t.Values) == 1 || l.Time.Before(when) {
+			t.Values = append(t.Values, TimeValue{when, value})
+
+			//CLEANUP OLDER DATA
+			//TODO: minimize cleanup frequency
+			// t.gc = t.gc + 1
+			// if t.gc > 5 {
+			i1, _, ok := t.Pos(time.Now().Add(-t.TimeseriesSpan - 1*time.Second))
+			if ok && i1 > 1 {
+				t.Values = t.Values[i1-1:]
+			}
+			// t.gc = 0
+			// }
+
+			return nil
+		}
+		return fmt.Errorf("'when' must be after the last element in this timeseries. when=%v last=%v", when, l)
 	}
-	// t.gc = 0
-	// }
+	t.Values = append(t.Values, TimeValue{when, value})
+	return nil
 }
 
 //Get get value in a specific time in timeseries.
@@ -69,7 +89,7 @@ func (t *Timeseries) Size() int {
 
 //Pos searches for which two point indexes are between the desired time
 //Find the time is exacly the same as a point time, the two returned indexes will be equal
-func (t *Timeseries) Pos(time time.Time) (int, int, bool) {
+func (t *Timeseries) Pos(time time.Time) (i1 int, i2 int, ok bool) {
 	for i1, v1 := range t.Values {
 		if v1.Time == time {
 			return i1, i1, true

@@ -204,7 +204,7 @@ func TestTSLinearRegression1(t *testing.T) {
 	assert.InDeltaf(t, 1.4e+11, a, 0.4e+11, "")
 	yy := a + b*float64(time.Now().UnixNano())
 	assert.InDeltaf(t, 7.0, yy, 0.5, "")
-	assert.InDeltaf(t, 1.0, r, 0.1, "")
+	assert.InDeltaf(t, 0.2, r, 0.1, "")
 }
 
 func TestTSLinearRegression2(t *testing.T) {

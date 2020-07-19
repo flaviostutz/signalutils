@@ -52,13 +52,22 @@ func (t *TimeseriesCounterRate) Rate(timeSpan time.Duration) (float64, bool) {
 	if timeSpan > t.Timeseries.TimeseriesSpan {
 		return 0, false
 	}
+	n1, ok := t.Timeseries.Last()
+	if !ok {
+		return 0, false
+	}
+	n := n1.Time
+	return t.RateRange(n.Add(-timeSpan), n)
+}
 
-	v2, ok := t.Timeseries.Last()
+//RateRange calculate the rate of change in the date range
+func (t *TimeseriesCounterRate) RateRange(from time.Time, to time.Time) (float64, bool) {
+	v1, ok := t.Timeseries.Get(from)
 	if !ok {
 		return 0, false
 	}
 
-	v1, ok := t.Timeseries.Get(v2.Time.Add(-timeSpan))
+	v2, ok := t.Timeseries.Get(to)
 	if !ok {
 		return 0, false
 	}
@@ -67,4 +76,24 @@ func (t *TimeseriesCounterRate) Rate(timeSpan time.Duration) (float64, bool) {
 	vd := v2.Value - v1.Value
 
 	return vd / td, true
+}
+
+//RateOverTime calculates a new Timeseries containing rate over time which each value is a rate over 'rateLen'
+//The timeseries total length will be of 'timeseriesSpan'
+//For each point in the counter timeseries, there will be calculated the counter rate and put to
+//the resulting new Timeseries
+func (t *TimeseriesCounterRate) RateOverTime(rateLen time.Duration, timeseriesSpan time.Duration) (ts *Timeseries, ok bool) {
+	to := time.Now()
+	from := to.Add(-timeseriesSpan)
+	rateTs := &Timeseries{}
+	for _, v := range t.Timeseries.Values {
+		if (v.Time == from || v.Time.After(from)) && (v.Time == to || v.Time.Before(to)) {
+			rv, ok := t.RateRange(v.Time.Add(-rateLen), v.Time)
+			if !ok {
+				continue
+			}
+			rateTs.AddWithTime(rv, v.Time)
+		}
+	}
+	return rateTs, true
 }
