@@ -8,7 +8,7 @@ ADD go.mod .
 RUN go mod download
 
 ADD / /signalutils
-RUN go test
+RUN go test -v
 
 WORKDIR /signalutils/example
 RUN go build -o /usr/bin/signalutils-example
