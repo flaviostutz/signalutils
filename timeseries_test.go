@@ -104,7 +104,7 @@ func TestTSGetInterpolated3(t *testing.T) {
 
 	nv, ok := ts.Get(time.Now().Add(-250 * time.Millisecond))
 	assert.True(t, ok)
-	assert.InDeltaf(t, float64(0), nv.Value, float64(5), "")
+	assert.InDeltaf(t, float64(0), nv.Value, float64(15), "")
 }
 
 func TestTSGetInterpolated4(t *testing.T) {
