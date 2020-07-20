@@ -52,13 +52,14 @@ func TestStateTrackerOnUnchanged(t *testing.T) {
 	assert.Equal(t, "state2", st.CurrentState.Name)
 	assert.Nil(t, notifiedUnchangedState)
 	st.SetTransientState("state2")
-	time.Sleep(110 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
+	assert.NotNil(t, notifiedUnchangedState)
 	assert.Equal(t, "state2", notifiedUnchangedState.Name)
 	notifiedUnchangedState = nil
 	st.SetTransientState("state2")
 	assert.Nil(t, notifiedUnchangedState)
 	st.SetTransientState("state2")
-	time.Sleep(110 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 	assert.Equal(t, "state2", notifiedUnchangedState.Name)
 }
 
