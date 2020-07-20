@@ -65,7 +65,8 @@ func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
 //Get get value in a specific time in timeseries.
 //If time is between two points inside timeseries, the value will
 //be interpolated according to the requested time and neighboring values
-func (t *Timeseries) Get(time time.Time) (TimeValue, bool) {
+//If time is before or after timeseries points, ok is false
+func (t *Timeseries) Get(time time.Time) (tv TimeValue, ok bool) {
 	i1, i2, ok := t.Pos(time)
 	if !ok {
 		return TimeValue{}, false
@@ -114,7 +115,7 @@ func (t *Timeseries) Reset() {
 }
 
 //Last get last point in time element, the head element
-func (t *Timeseries) Last() (TimeValue, bool) {
+func (t *Timeseries) Last() (tv TimeValue, ok bool) {
 	l := len(t.Values)
 	if l == 0 {
 		return TimeValue{}, false
@@ -124,7 +125,7 @@ func (t *Timeseries) Last() (TimeValue, bool) {
 
 //Avg calculates the average value of points compreended between time 'from' and 'to'
 //No interpolation is used here
-func (t *Timeseries) Avg(from time.Time, to time.Time) (float64, bool) {
+func (t *Timeseries) Avg(from time.Time, to time.Time) (value float64, ok bool) {
 	sum := 0.0
 	c := 0
 	for _, v := range t.Values {
@@ -138,9 +139,9 @@ func (t *Timeseries) Avg(from time.Time, to time.Time) (float64, bool) {
 
 //ValuesRange get values in time range
 //returns an array of TimeValue and and array with just the float values
-func (t *Timeseries) ValuesRange(from time.Time, to time.Time) ([]TimeValue, []float64) {
+func (t *Timeseries) ValuesRange(from time.Time, to time.Time) (timeValues []TimeValue, values []float64) {
 	vs := make([]TimeValue, 0)
-	values := make([]float64, 0)
+	values = make([]float64, 0)
 	for _, v := range t.Values {
 		vs = append(vs, v)
 		values = append(values, v.Value)
