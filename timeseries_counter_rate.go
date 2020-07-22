@@ -82,10 +82,10 @@ func (t *TimeseriesCounterRate) RateRange(from time.Time, to time.Time) (float64
 //The timeseries total length will be of 'timeseriesSpan'
 //For each point in the counter timeseries, there will be calculated the counter rate and put to
 //the resulting new Timeseries
-func (t *TimeseriesCounterRate) RateOverTime(rateLen time.Duration, timeseriesSpan time.Duration) (ts *Timeseries, ok bool) {
+func (t *TimeseriesCounterRate) RateOverTime(rateLen time.Duration, timeseriesSpan time.Duration) (ts Timeseries, ok bool) {
 	to := time.Now()
 	from := to.Add(-timeseriesSpan)
-	rateTs := &Timeseries{}
+	rateTs := Timeseries{}
 	for _, v := range t.Timeseries.Values {
 		if (v.Time == from || v.Time.After(from)) && (v.Time == to || v.Time.Before(to)) {
 			rv, ok := t.RateRange(v.Time.Add(-rateLen), v.Time)
