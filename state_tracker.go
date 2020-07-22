@@ -39,7 +39,7 @@ type State struct {
 //onChange - listener function that will be called on state transition. ex.: func(newState, previousState) {}. nil value disables this
 //unchangedTimer - after this time without changing state, 'onUnchanged' func will be invoked recurrently//. current highest sample will be calculated based on this time slice
 //onUnchanged - listener function to be invoked if state is not changed after unchangedStateCount. onUnchanged(state). nil value disables this feature
-//highestLevelAccordingToUnchangedTimer - calculate highest level according to whole state duration (false) or only during the onChanged recurrent timer
+//resetHighestOnunchanged - calculate highest level according to whole state duration (false) or only during the onChanged recurrent timer
 func NewStateTracker(initialState string, changeConfirmations int, onChange func(*State, *State), unchangedTimer time.Duration, onUnchanged func(*State), resetHighestOnunchanged bool) *StateTracker {
 	state := State{
 		Name:  initialState,
