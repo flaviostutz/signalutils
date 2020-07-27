@@ -1,6 +1,7 @@
 package signalutils
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -9,8 +10,10 @@ import (
 )
 
 func TestWorkerStepError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	// logrus.SetLevel(logrus.TraceLevel)
-	w := StartWorker("test1", func() error {
+	w := StartWorker(ctx, "test1", func() error {
 		time.Sleep(200 * time.Millisecond)
 		return fmt.Errorf("Error here")
 	}, 3, 5, true)
@@ -21,8 +24,10 @@ func TestWorkerStepError(t *testing.T) {
 }
 
 func TestWorkerStepFreq(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	// logrus.SetLevel(logrus.TraceLevel)
-	w := StartWorker("test1", func() error {
+	w := StartWorker(ctx, "test1", func() error {
 		time.Sleep(15 * time.Millisecond)
 		return nil
 	}, 3.0, 5.0, true)
@@ -31,7 +36,7 @@ func TestWorkerStepFreq(t *testing.T) {
 	time.Sleep(2000 * time.Millisecond)
 	assert.InDeltaf(t, 5, w.CurrentFreq, 2, "")
 	assert.InDeltaf(t, 15, w.CurrentStepTime.Milliseconds(), 5, "")
-	w.Stop()
+	cancel()
 	time.Sleep(300 * time.Millisecond)
 	assert.False(t, w.active)
 }

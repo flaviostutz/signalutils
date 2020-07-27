@@ -1,6 +1,7 @@
 package signalutils
 
 import (
+	"context"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -13,7 +14,6 @@ type Worker struct {
 	minFreq         float64
 	maxFreq         float64
 	ticker          *time.Ticker
-	done            chan (bool)
 	step            StepFunc
 	stopOnErr       bool
 	name            string
@@ -29,35 +29,29 @@ type StepFunc func() error
 //StartWorker launches a Go routine looping in this step function limiting by maxFreq
 //if the function is being run in a frequency less than minFreq, a logrus.Debug log will show this
 //this situation happens when the function is too slow
-func StartWorker(name string, step StepFunc, minFreq float64, maxFreq float64, stopOnErr bool) *Worker {
+func StartWorker(ctx context.Context, name string, step StepFunc, minFreq float64, maxFreq float64, stopOnErr bool) *Worker {
 	c := &Worker{
 		name:      name,
 		minFreq:   minFreq,
 		maxFreq:   maxFreq,
-		done:      make(chan bool),
 		ticker:    time.NewTicker(time.Duration((float64(time.Second) / maxFreq))),
 		step:      step,
 		stopOnErr: stopOnErr,
 		active:    false,
 	}
 	logrus.Tracef("%s: starting goroutine", name)
-	go c.run()
+	go c.run(ctx)
 	return c
 }
 
-//Stop stops Go routine loop
-func (c *Worker) Stop() {
-	c.done <- true
-}
-
-func (c *Worker) run() {
+func (c *Worker) run(ctx context.Context) {
 	c.active = true
 	for {
 		loopStart := time.Now()
 		select {
-		case <-c.done:
+		case <-ctx.Done():
 			c.active = false
-			logrus.Tracef("%s: deactivated", c.name)
+			logrus.Tracef("%s: deactivated by Context", c.name)
 			return
 		case <-c.ticker.C:
 			stepStart := time.Now()
