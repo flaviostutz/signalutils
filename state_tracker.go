@@ -3,6 +3,7 @@ package signalutils
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type StateTracker struct {
 	highestLevel            float64
 	resetHighestOnunchanged bool
 	active                  bool
+	m                       *sync.Mutex
 }
 
 //State event struct
@@ -57,6 +59,7 @@ func NewStateTracker(initialState string, changeConfirmations int, onChange func
 		highestLevel:            -math.MaxFloat64,
 		active:                  true,
 		resetHighestOnunchanged: resetHighestOnunchanged,
+		m:                       &sync.Mutex{},
 	}
 	go s1.verifyUnchanged()
 	return &s1
@@ -72,6 +75,8 @@ func (s *StateTracker) SetTransientState(stateName string) (*State, error) {
 //data is any type that will be sent to listener function
 //returns current state count
 func (s *StateTracker) SetTransientStateWithData(stateName string, level float64, data interface{}) (*State, error) {
+	s.m.Lock()
+	defer s.m.Unlock()
 	if !s.active {
 		return &State{}, fmt.Errorf("State tracker not active")
 	}
@@ -131,11 +136,14 @@ func (s *StateTracker) SetTransientStateWithData(stateName string, level float64
 
 //Close closes the internal timers for notifying unchanged
 func (s *StateTracker) Close() {
+	s.m.Lock()
+	defer s.m.Unlock()
 	s.active = false
 }
 
 func (s *StateTracker) verifyUnchanged() {
 	for ok := s.active; ok; ok = s.active {
+		s.m.Lock()
 		// fmt.Printf(">>> VERIFY UNCHANGED current=%s\n", s.CurrentState)
 		elapsed := time.Duration((time.Now().UnixNano() - s.lastUnchanged.UnixNano()))
 		if s.onUnchanged != nil && (elapsed.Nanoseconds() > s.unchangedTimer.Nanoseconds()) {
@@ -147,6 +155,7 @@ func (s *StateTracker) verifyUnchanged() {
 			onUnchanged := s.onUnchanged
 			onUnchanged(s.CurrentState)
 		}
+		s.m.Unlock()
 		time.Sleep(s.unchangedTimer / 2)
 	}
 }

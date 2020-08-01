@@ -2,6 +2,7 @@ package signalutils
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gonum/stat"
@@ -17,6 +18,7 @@ type TimeValue struct {
 type Timeseries struct {
 	TimeseriesSpan time.Duration
 	Values         []TimeValue
+	m              *sync.RWMutex
 	// gc             int
 }
 
@@ -27,6 +29,7 @@ func NewTimeseries(maxTimeseriesSpan time.Duration) Timeseries {
 	return Timeseries{
 		TimeseriesSpan: maxTimeseriesSpan,
 		Values:         make([]TimeValue, 0),
+		m:              &sync.RWMutex{},
 	}
 }
 
@@ -38,6 +41,8 @@ func (t *Timeseries) Add(value float64) {
 //AddWithTime adds ad new sample to the head of this timeseries
 //'when' must be after the last element (no middle insertions allowed)
 func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
+	t.m.Lock()
+	defer t.m.Unlock()
 	l, ok := t.Last()
 	if ok {
 		if len(t.Values) == 1 || l.Time.Before(when) {
@@ -67,6 +72,8 @@ func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
 //be interpolated according to the requested time and neighboring values
 //If time is before or after timeseries points, ok is false
 func (t *Timeseries) Get(time time.Time) (tv TimeValue, ok bool) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	i1, i2, ok := t.Pos(time)
 	if !ok {
 		return TimeValue{}, false
@@ -85,12 +92,16 @@ func (t *Timeseries) Get(time time.Time) (tv TimeValue, ok bool) {
 
 //Size current number of elements in this timeseries
 func (t *Timeseries) Size() int {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	return len(t.Values)
 }
 
 //Pos searches for which two point indexes are between the desired time
 //Find the time is exacly the same as a point time, the two returned indexes will be equal
 func (t *Timeseries) Pos(time time.Time) (i1 int, i2 int, ok bool) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	for i1, v1 := range t.Values {
 		if v1.Time == time {
 			return i1, i1, true
@@ -111,11 +122,15 @@ func (t *Timeseries) Pos(time time.Time) (i1 int, i2 int, ok bool) {
 
 //Reset remove all elements from this timeseries
 func (t *Timeseries) Reset() {
+	t.m.Lock()
+	defer t.m.Unlock()
 	t.Values = make([]TimeValue, 0)
 }
 
 //Last get last point in time element, the head element
 func (t *Timeseries) Last() (tv TimeValue, ok bool) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	l := len(t.Values)
 	if l == 0 {
 		return TimeValue{}, false
@@ -126,6 +141,8 @@ func (t *Timeseries) Last() (tv TimeValue, ok bool) {
 //Avg calculates the average value of points compreended between time 'from' and 'to'
 //No interpolation is used here
 func (t *Timeseries) Avg(from time.Time, to time.Time) (value float64, ok bool) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	sum := 0.0
 	c := 0
 	for _, v := range t.Values {
@@ -140,6 +157,8 @@ func (t *Timeseries) Avg(from time.Time, to time.Time) (value float64, ok bool) 
 //ValuesRange get values in time range
 //returns an array of TimeValue and and array with just the float values
 func (t *Timeseries) ValuesRange(from time.Time, to time.Time) (timeValues []TimeValue, values []float64) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	vs := make([]TimeValue, 0)
 	values = make([]float64, 0)
 	for _, v := range t.Values {
@@ -152,6 +171,8 @@ func (t *Timeseries) ValuesRange(from time.Time, to time.Time) (timeValues []Tim
 //StdDev calculates the standard deviation and mean for the time range
 //returns standard deviation and mean value
 func (t *Timeseries) StdDev(from time.Time, to time.Time) (std float64, mean float64) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	_, values := t.ValuesRange(from, to)
 	mean, std = stat.MeanStdDev(values, nil)
 	return std, mean
@@ -161,6 +182,8 @@ func (t *Timeseries) StdDev(from time.Time, to time.Time) (std float64, mean flo
 //x is in range of time.UnixNano()
 //returns alpha and beta as for y = alpha + beta*x and rsquared with fit from 0-1
 func (t *Timeseries) LinearRegression(from time.Time, to time.Time) (alpha float64, beta float64, rsquared float64) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	vs, _ := t.ValuesRange(from, to)
 	x := make([]float64, 0)
 	y := make([]float64, 0)

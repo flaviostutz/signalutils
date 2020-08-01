@@ -2,6 +2,7 @@ package signalutils
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,7 @@ import (
 type TimeseriesCounterRate struct {
 	Timeseries Timeseries
 	ccounter   float64
+	m          *sync.RWMutex
 }
 
 //NewTimeseriesCounterRate creates a time timeseries with max time span of timeseriesSpan
@@ -22,12 +24,15 @@ func NewTimeseriesCounterRate(timeseriesSpan time.Duration) TimeseriesCounterRat
 	ts := NewTimeseries(timeseriesSpan)
 	return TimeseriesCounterRate{
 		Timeseries: ts,
+		m:          &sync.RWMutex{},
 	}
 }
 
 //Inc increments the last value from the timeseries by 'value' and sets
 //add the new point with time.Now() time
 func (t *TimeseriesCounterRate) Inc(value float64) error {
+	t.m.Lock()
+	defer t.m.Unlock()
 	if value < 0 {
 		return fmt.Errorf("value cannot be negative")
 	}
@@ -39,6 +44,8 @@ func (t *TimeseriesCounterRate) Inc(value float64) error {
 //Set sets the absolute value at time time.Now(). The value cannot be less
 //then last value from the timeseries as this must be a counter
 func (t *TimeseriesCounterRate) Set(value float64) error {
+	t.m.Lock()
+	defer t.m.Unlock()
 	if value < t.ccounter {
 		return fmt.Errorf("value cannot be less than current counter")
 	}
@@ -49,6 +56,8 @@ func (t *TimeseriesCounterRate) Set(value float64) error {
 //Rate calculates the rate of change between the last point in time of this timeseries
 //and the time in past, specified by timeSpan
 func (t *TimeseriesCounterRate) Rate(timeSpan time.Duration) (float64, bool) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	if timeSpan > t.Timeseries.TimeseriesSpan {
 		return 0, false
 	}
@@ -62,6 +71,8 @@ func (t *TimeseriesCounterRate) Rate(timeSpan time.Duration) (float64, bool) {
 
 //RateRange calculate the rate of change in the date range
 func (t *TimeseriesCounterRate) RateRange(from time.Time, to time.Time) (float64, bool) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	v1, ok := t.Timeseries.Get(from)
 	if !ok {
 		return 0, false
@@ -83,6 +94,8 @@ func (t *TimeseriesCounterRate) RateRange(from time.Time, to time.Time) (float64
 //For each point in the counter timeseries, there will be calculated the counter rate and put to
 //the resulting new Timeseries
 func (t *TimeseriesCounterRate) RateOverTime(rateLen time.Duration, timeseriesSpan time.Duration) (ts Timeseries, ok bool) {
+	t.m.RLock()
+	defer t.m.RUnlock()
 	to := time.Now()
 	from := to.Add(-timeseriesSpan)
 	rateTs := Timeseries{}

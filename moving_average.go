@@ -2,6 +2,7 @@ package signalutils
 
 import (
 	"math"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type MovingAverage struct {
 	samplesDurationNano       int64
 	lastSampleTimeUnixNano    int64
 	minTimeNanoBetweenSamples int64
+	m                         *sync.Mutex
 }
 
 //NewMovingAverage creates a new moving averager with a fixed size
@@ -29,6 +31,7 @@ func NewMovingAverage(size int) MovingAverage {
 		Samples:             make([]float64, size),
 		lastResultValid:     false,
 		samplesDurationNano: -1,
+		m:                   &sync.Mutex{},
 	}
 }
 
@@ -42,11 +45,14 @@ func NewMovingAverageTimeWindow(samplesDuration time.Duration, maxSamples int) M
 		lastResultValid:           false,
 		minTimeNanoBetweenSamples: minTime,
 		lastSampleTimeUnixNano:    0,
+		m:                         &sync.Mutex{},
 	}
 }
 
 //AddSample adds a new sample to the moving average. If there is more than 'size' samples, the oldest sample will be removed. If this is a timed window averager and the last sample was added in less than sampleDurate/maxSamples time, it will be ignored.
 func (m *MovingAverage) AddSample(value float64) bool {
+	m.m.Lock()
+	defer m.m.Unlock()
 	if m.samplesDurationNano != -1 {
 		if (time.Now().UnixNano() - m.lastSampleTimeUnixNano) < m.minTimeNanoBetweenSamples {
 			return false
@@ -94,6 +100,8 @@ func (m *MovingAverage) AddSampleIfNearAverage(value float64, avgDiff float64) b
 
 //Average computes average with current samples in fixed length list
 func (m *MovingAverage) Average() float64 {
+	m.m.Lock()
+	defer m.m.Unlock()
 	if m.Size == 0 {
 		return math.NaN()
 	}
@@ -135,6 +143,8 @@ func (m *MovingAverage) Average() float64 {
 //AverageMinMax - returns the min/max values in current window
 //Group min/max each 'groupBySamples' and perform average over theses samples for min and max values
 func (m *MovingAverage) AverageMinMax(groupBySamples int) (float64, float64) {
+	m.m.Lock()
+	defer m.m.Unlock()
 	if m.Size == 0 {
 		return math.NaN(), math.NaN()
 	}
@@ -194,6 +204,8 @@ func (m *MovingAverage) AverageMinMax(groupBySamples int) (float64, float64) {
 
 //Reset internal samples
 func (m *MovingAverage) Reset() {
+	m.m.Lock()
+	defer m.m.Unlock()
 	m.Samples = make([]float64, len(m.Samples))
 	m.Size = 0
 	m.lastResultValid = false

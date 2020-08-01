@@ -11,6 +11,7 @@ type DynamicSchmittTrigger struct {
 	ignoreSamplesTooDifferentRatio float64
 	groupByMinMaxSamples           int
 	minMaxUpperLowerRatio          float64
+	// m                              *sync.Mutex
 }
 
 //NewDynamicSchmittTriggerTimeWindow new schmitt trigger creation
@@ -28,6 +29,7 @@ func NewDynamicSchmittTriggerTimeWindow(minMaxMovingAverageTime time.Duration, m
 		ignoreSamplesTooDifferentRatio: ignoreSamplesTooDifferentRatio,
 		groupByMinMaxSamples:           groupByMinMaxSamples,
 		minMaxUpperLowerRatio:          minMaxUpperLowerRatio,
+		// m:                              &sync.Mutex{},
 	}, nil
 }
 
@@ -35,14 +37,18 @@ func NewDynamicSchmittTriggerTimeWindow(minMaxMovingAverageTime time.Duration, m
 //returns 1-true or false if value was accepted by internal moving averager (rate not too high)
 //        2-how much the current value is distant from the lower limit (if it is in 'upperRange' state) or distant from the upper limit (if in 'lowerRange' state) for a new change to occur in trigger. a ratio in relation to max-min range will be returned
 func (s *DynamicSchmittTrigger) SetCurrentValue(value float64) (bool, float64) {
+	// s.m.Lock()
 	b := s.minMaxMovAvg.AddSampleIfNearAverage(value, s.ignoreSamplesTooDifferentRatio)
 	min, max := s.minMaxMovAvg.AverageMinMax(s.groupByMinMaxSamples)
 	cw := max - min/2
 	min2 := min + (cw-min)*(1-s.minMaxUpperLowerRatio)
 	max2 := max - (max-cw)*(1-s.minMaxUpperLowerRatio)
 	s.schmittTrigger.UpdateLowerUpperLimits(min2, max2)
+	// s.m.Unlock()
 	s.schmittTrigger.SetCurrentValue(value)
 
+	// s.m.Lock()
+	// defer s.m.Unlock()
 	if s.schmittTrigger.IsUpperRange() {
 		return b, (value - s.schmittTrigger.LowerLimit) // / (max - min)
 	}
