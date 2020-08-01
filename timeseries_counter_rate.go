@@ -98,7 +98,7 @@ func (t *TimeseriesCounterRate) RateOverTime(rateLen time.Duration, timeseriesSp
 	defer t.m.RUnlock()
 	to := time.Now()
 	from := to.Add(-timeseriesSpan)
-	rateTs := Timeseries{}
+	rateTs := NewTimeseries(timeseriesSpan + rateLen)
 	for _, v := range t.Timeseries.Values {
 		if (v.Time == from || v.Time.After(from)) && (v.Time == to || v.Time.Before(to)) {
 			rv, ok := t.RateRange(v.Time.Add(-rateLen), v.Time)

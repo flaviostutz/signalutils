@@ -41,9 +41,8 @@ func (t *Timeseries) Add(value float64) {
 //AddWithTime adds ad new sample to the head of this timeseries
 //'when' must be after the last element (no middle insertions allowed)
 func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
-	t.m.Lock()
-	defer t.m.Unlock()
 	l, ok := t.Last()
+	t.m.Lock()
 	if ok {
 		if len(t.Values) == 1 || l.Time.Before(when) {
 			t.Values = append(t.Values, TimeValue{when, value})
@@ -52,9 +51,12 @@ func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
 			//TODO: minimize cleanup frequency
 			// t.gc = t.gc + 1
 			// if t.gc > 5 {
+			t.m.Unlock()
 			i1, _, ok := t.Pos(time.Now().Add(-t.TimeseriesSpan - 1*time.Second))
 			if ok && i1 > 1 {
+				t.m.Lock()
 				t.Values = t.Values[i1-1:]
+				t.m.Unlock()
 			}
 			// t.gc = 0
 			// }
@@ -64,6 +66,7 @@ func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
 		return fmt.Errorf("'when' must be after the last element in this timeseries. when=%v last=%v", when, l)
 	}
 	t.Values = append(t.Values, TimeValue{when, value})
+	t.m.Unlock()
 	return nil
 }
 
