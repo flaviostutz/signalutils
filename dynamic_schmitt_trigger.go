@@ -6,6 +6,7 @@ import (
 )
 
 //DynamicSchmittTrigger adjusts its internal lower and upper limits according to a moving average on observed values
+//Only initialize this with NewDynamicSchmittTriggerTimeWindow(..)
 type DynamicSchmittTrigger struct {
 	minMaxMovAvg                   MovingAverage
 	schmittTrigger                 SchmittTrigger

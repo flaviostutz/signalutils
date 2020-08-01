@@ -7,6 +7,7 @@ import (
 )
 
 //SchmittTrigger utility
+//Only initialize this with NewSchmittTrigger(..)
 type SchmittTrigger struct {
 	LowerLimit float64
 	UpperLimit float64

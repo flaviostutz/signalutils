@@ -15,6 +15,7 @@ type TimeValue struct {
 }
 
 //Timeseries utility
+//Only initialize this with NewTimeseries(..)
 type Timeseries struct {
 	TimeseriesSpan time.Duration
 	Values         []TimeValue

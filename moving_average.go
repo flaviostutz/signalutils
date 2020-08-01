@@ -7,6 +7,7 @@ import (
 )
 
 //MovingAverage running moving averager
+//Only initialize this with NewMovingAverage(..)
 type MovingAverage struct {
 	Size                      int
 	Samples                   []float64

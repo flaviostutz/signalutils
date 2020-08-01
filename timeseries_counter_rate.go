@@ -13,6 +13,7 @@ import (
 //a counter, so that averages between two times are calculated by just
 //averaging the first and last points, not all the points between.
 //Very useful for metrics monitoring. See more at https://prometheus.io/docs/concepts/metric_types/#counter
+//Only initialize this with NewTimeseries(..)
 type TimeseriesCounterRate struct {
 	Timeseries Timeseries
 	ccounter   float64
