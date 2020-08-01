@@ -67,13 +67,16 @@ func (t *TimeseriesCounterRate) Rate(timeSpan time.Duration) (float64, bool) {
 		return 0, false
 	}
 	n := n1.Time
-	return t.RateRange(n.Add(-timeSpan), n)
+	return t.rateRange(n.Add(-timeSpan), n)
 }
 
 //RateRange calculate the rate of change in the date range
 func (t *TimeseriesCounterRate) RateRange(from time.Time, to time.Time) (float64, bool) {
 	t.m.RLock()
 	defer t.m.RUnlock()
+	return t.rateRange(from, to)
+}
+func (t *TimeseriesCounterRate) rateRange(from time.Time, to time.Time) (float64, bool) {
 	v1, ok := t.Timeseries.Get(from)
 	if !ok {
 		return 0, false
@@ -102,7 +105,7 @@ func (t *TimeseriesCounterRate) RateOverTime(rateLen time.Duration, timeseriesSp
 	rateTs := NewTimeseries(timeseriesSpan + rateLen)
 	for _, v := range t.Timeseries.Values {
 		if (v.Time == from || v.Time.After(from)) && (v.Time == to || v.Time.Before(to)) {
-			rv, ok := t.RateRange(v.Time.Add(-rateLen), v.Time)
+			rv, ok := t.rateRange(v.Time.Add(-rateLen), v.Time)
 			if !ok {
 				continue
 			}
