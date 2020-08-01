@@ -41,8 +41,9 @@ func (t *Timeseries) Add(value float64) {
 //AddWithTime adds ad new sample to the head of this timeseries
 //'when' must be after the last element (no middle insertions allowed)
 func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
-	l, ok := t.Last()
 	t.m.Lock()
+	defer t.m.Unlock()
+	l, ok := t.last()
 	if ok {
 		if len(t.Values) == 1 || l.Time.Before(when) {
 			t.Values = append(t.Values, TimeValue{when, value})
@@ -51,12 +52,9 @@ func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
 			//TODO: minimize cleanup frequency
 			// t.gc = t.gc + 1
 			// if t.gc > 5 {
-			t.m.Unlock()
-			i1, _, ok := t.Pos(time.Now().Add(-t.TimeseriesSpan - 1*time.Second))
+			i1, _, ok := t.pos(time.Now().Add(-t.TimeseriesSpan - 1*time.Second))
 			if ok && i1 > 1 {
-				t.m.Lock()
 				t.Values = t.Values[i1-1:]
-				t.m.Unlock()
 			}
 			// t.gc = 0
 			// }
@@ -66,7 +64,6 @@ func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
 		return fmt.Errorf("'when' must be after the last element in this timeseries. when=%v last=%v", when, l)
 	}
 	t.Values = append(t.Values, TimeValue{when, value})
-	t.m.Unlock()
 	return nil
 }
 
@@ -77,7 +74,7 @@ func (t *Timeseries) AddWithTime(value float64, when time.Time) error {
 func (t *Timeseries) Get(time time.Time) (tv TimeValue, ok bool) {
 	t.m.RLock()
 	defer t.m.RUnlock()
-	i1, i2, ok := t.Pos(time)
+	i1, i2, ok := t.pos(time)
 	if !ok {
 		return TimeValue{}, false
 	}
@@ -105,6 +102,9 @@ func (t *Timeseries) Size() int {
 func (t *Timeseries) Pos(time time.Time) (i1 int, i2 int, ok bool) {
 	t.m.RLock()
 	defer t.m.RUnlock()
+	return t.pos(time)
+}
+func (t *Timeseries) pos(time time.Time) (i1 int, i2 int, ok bool) {
 	for i1, v1 := range t.Values {
 		if v1.Time == time {
 			return i1, i1, true
@@ -134,6 +134,9 @@ func (t *Timeseries) Reset() {
 func (t *Timeseries) Last() (tv TimeValue, ok bool) {
 	t.m.RLock()
 	defer t.m.RUnlock()
+	return t.last()
+}
+func (t *Timeseries) last() (tv TimeValue, ok bool) {
 	l := len(t.Values)
 	if l == 0 {
 		return TimeValue{}, false
@@ -162,6 +165,9 @@ func (t *Timeseries) Avg(from time.Time, to time.Time) (value float64, ok bool) 
 func (t *Timeseries) ValuesRange(from time.Time, to time.Time) (timeValues []TimeValue, values []float64) {
 	t.m.RLock()
 	defer t.m.RUnlock()
+	return t.valuesRange(from, to)
+}
+func (t *Timeseries) valuesRange(from time.Time, to time.Time) (timeValues []TimeValue, values []float64) {
 	vs := make([]TimeValue, 0)
 	values = make([]float64, 0)
 	for _, v := range t.Values {
@@ -176,7 +182,7 @@ func (t *Timeseries) ValuesRange(from time.Time, to time.Time) (timeValues []Tim
 func (t *Timeseries) StdDev(from time.Time, to time.Time) (std float64, mean float64) {
 	t.m.RLock()
 	defer t.m.RUnlock()
-	_, values := t.ValuesRange(from, to)
+	_, values := t.valuesRange(from, to)
 	mean, std = stat.MeanStdDev(values, nil)
 	return std, mean
 }
@@ -187,7 +193,7 @@ func (t *Timeseries) StdDev(from time.Time, to time.Time) (std float64, mean flo
 func (t *Timeseries) LinearRegression(from time.Time, to time.Time) (alpha float64, beta float64, rsquared float64) {
 	t.m.RLock()
 	defer t.m.RUnlock()
-	vs, _ := t.ValuesRange(from, to)
+	vs, _ := t.valuesRange(from, to)
 	x := make([]float64, 0)
 	y := make([]float64, 0)
 	for _, v := range vs {
