@@ -140,11 +140,11 @@ Average is 4000.000000
 * Worker - useful for workloads that works on a "while true" loop. It launches a Go routine with a function, limits the loop frequency, measures actual frequency and alerts if frequency is outside desired limits.
 
 ```golang
-	w := StartWorker("test1", func() error {
+	w := StartWorker(context.Background(), "test1", func() error {
 		//do some real work here
 		time.Sleep(15 * time.Millisecond)
 		return nil
-	}, 5, true)
+	}, 1, 5, true)
 	time.Sleep(200 * time.Millisecond)
 	assert.True(t, w.active)
 	time.Sleep(2000 * time.Millisecond)
